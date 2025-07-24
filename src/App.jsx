@@ -10,6 +10,7 @@ import Contact from "./components/Contact";
 import ChatBotWidget from "./components/ChatBotWidget"; 
 import { useState } from "react";
 import Planning from "./components/Planning";
+import FinancialInclusion from "./components/FinancialInclusion";
 
 function App() {
   const [darkMode, setDarkMode] = useState(false);
@@ -26,7 +27,7 @@ function App() {
                 <Route path="/" element={<Dashboard />} />
                 <Route path="/budgeting" element={<Budgeting />} />
                 <Route path="/planning" element={<Planning />} />
-                <Route path="/inclusion" element={<Wallet />} />
+                <Route path="/inclusion" element={<FinancialInclusion />} />
                 <Route path="/goals" element={<Community />} />
                 <Route path="/profile" element={<Profile />} />
                 <Route path="/contact" element={<Contact />} />

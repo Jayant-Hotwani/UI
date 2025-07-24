@@ -9,6 +9,7 @@ import {
   ResponsiveContainer,
 } from "recharts";
 import dayjs from "dayjs";
+import FinancialInclusion from "./FinancialInclusion";
 
 // Generate 30-day mock data
 const generateDailyData = () => {
@@ -160,7 +161,9 @@ const Planning = () => {
           </h4>
           <p>New MSME subsidies expected in the upcoming policy review.</p>
         </div>
+        
       </div>
+      <FinancialInclusion />
     </div>
   );
 };

@@ -1,134 +1,90 @@
+import { useEffect, useState, useMemo } from "react";
 import {
   PieChart,
   Pie,
   Cell,
-  Legend,
   Tooltip,
   ResponsiveContainer,
 } from "recharts";
-import { useEffect, useMemo, useState } from "react";
 
 export default function Budgeting() {
-  const [expenseBreakdown, setExpenseBreakdown] = useState([]);
   const [transactions, setTransactions] = useState([]);
   const [filterType, setFilterType] = useState("inflow");
   const [selectedMonth, setSelectedMonth] = useState("");
-
-  useEffect(() => {
-    // Simulated expense breakdown
-    setExpenseBreakdown([
-      { category: "Logistics", amount: 3000 },
-      { category: "Rent", amount: 10000 },
-      { category: "Salaries", amount: 15000 },
-      { category: "Utility Bills", amount: 2000 },
-      { category: "Personal", amount: 3000 },
-      { category: "Other", amount: 5000 },
-    ]);
-
-    // Simulated transaction history
-    setTransactions([
-      {
-        date: "2025-07-21",
-        time: "10:30 AM",
-        category: "Salary",
-        description: "July Salary Credited",
-        amount: 30000,
-        party: "HR Dept",
-        transactionType: "inflow",
-      },
-      {
-        date: "2025-07-22",
-        time: "03:45 PM",
-        category: "Rent",
-        description: "Office Rent Payment",
-        amount: 10000,
-        party: "Landlord",
-        transactionType: "outflow",
-      },
-      {
-        date: "2025-07-23",
-        time: "01:00 PM",
-        category: "Utility Bills",
-        description: "Electricity",
-        amount: 2500,
-        party: "MSEB",
-        transactionType: "outflow",
-      },
-      {
-        date: "2025-07-24",
-        time: "09:15 AM",
-        category: "Consulting",
-        description: "Payment from Client",
-        amount: 15000,
-        party: "Client A",
-        transactionType: "inflow",
-      },
-    ]);
-  }, []);
-
-  const purchaseData = [
-    { name: "Small Purchases", value: 1200 },
-    { name: "Medium Purchases", value: 4500 },
-    { name: "Online", value: 3000 },
-    { name: "Store", value: 6800 },
-    { name: "Seasonal", value: 2000 },
-  ];
+  const [aiInsights, setAiInsights] = useState([]);
+  const [revenueSummary, setRevenueSummary] = useState([]);
+  const [expenseSummary, setExpenseSummary] = useState([]);
 
   const COLORS = [
-    "#3B82F6", // Blue
-    "#8B5CF6", // Purple
-    "#10B981", // Green
-    "#F59E0B", // Amber
-    "#EF4444", // Red
+    "#3B82F6", "#8B5CF6", "#10B981", "#F59E0B", "#EF4444",
   ];
 
-  // Generate month options (last 12 months)
+  const totalRevenue = useMemo(() =>
+    revenueSummary.reduce((sum, r) => sum + r.amount, 0), [revenueSummary]
+  );
+
+  const totalExpense = useMemo(() =>
+    expenseSummary.reduce((sum, e) => sum + e.amount, 0), [expenseSummary]
+  );
+
+  const balance = totalRevenue - totalExpense;
+
   const monthOptions = useMemo(() => {
     return Array.from({ length: 12 }, (_, i) => {
       const date = new Date();
       date.setMonth(date.getMonth() - i);
       return {
-        label: date.toLocaleString("default", {
-          month: "long",
-          year: "numeric",
-        }),
-        value: `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(
-          2,
-          "0"
-        )}`,
+        label: date.toLocaleString("default", { month: "long", year: "numeric" }),
+        value: `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`,
       };
     });
   }, []);
 
-  const totalRevenue = 50000;
-  const totalExpense = useMemo(() => {
-    return expenseBreakdown.reduce((sum, e) => sum + e.amount, 0);
-  }, [expenseBreakdown]);
-  const balance = totalRevenue - totalExpense;
+  const fetchSummaryData = async (timeframe = "last_30_days") => {
+    try {
+      const params = `user_id=default_user&timeframe=${timeframe}`;
 
-  // Filtered transactions by type
+      const [revRes, expRes, tranRes, aiRes] = await Promise.all([
+        fetch(`/goals/get-summery-by-category?${params}&type=Inflow`).then((res) => res.json()),
+        fetch(`/goals/get-summery-by-category?${params}&type=Outflow`).then((res) => res.json()),
+        fetch(`/goals/get-transaction-history?${params}`).then((res) => res.json()),
+        fetch(`/goals/trend-reason?user_id=default_user&lang=en&timeframe=${timeframe}`).then((res) => res.json()),
+      ]);
+
+      setRevenueSummary(revRes);
+      setExpenseSummary(expRes);
+      setTransactions(tranRes);
+      setAiInsights(aiRes.insights || []);
+    } catch (err) {
+      console.error("Failed to fetch summary data", err);
+    }
+  };
+
+  useEffect(() => {
+    fetchSummaryData();
+  }, []);
+
   const filteredTransactions = useMemo(() => {
     return transactions.filter((t) => t.transactionType === filterType);
   }, [transactions, filterType]);
 
   return (
     <div className="flex flex-col gap-6 w-full">
-      <h1 className="text-2xl font-semibold text-gray-900 dark:text-gray-100">
-        Budgeting
-      </h1>
+      <h1 className="text-2xl font-semibold text-gray-900 dark:text-gray-100">Budgeting</h1>
 
-      {/* Month Filter */}
+      {/* Month selector */}
       <div className="flex justify-end">
         <select
           value={selectedMonth}
-          onChange={(e) => setSelectedMonth(e.target.value)}
+          onChange={(e) => {
+            setSelectedMonth(e.target.value);
+            fetchSummaryData(e.target.value);
+          }}
           className="w-48 px-3 py-2 rounded bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-100"
         >
           <option value="">Select Month</option>
           {monthOptions.map((m, i) => (
-            <option key={i} value={m.value}>
-              {m.label}
-            </option>
+            <option key={i} value={m.value}>{m.label}</option>
           ))}
         </select>
       </div>
@@ -149,34 +105,20 @@ export default function Budgeting() {
         </div>
       </div>
 
-      {/* Expense + Purchases */}
+      {/* Expense Breakdown + Pie Chart */}
       <div className="grid grid-cols-1 md:grid-cols-[40%_60%] gap-4">
-        {/* Expense Breakdown */}
         <div className="bg-white dark:bg-gray-800 p-3 rounded shadow">
           <h2 className="text-lg font-medium text-gray-700 dark:text-gray-200 mb-4">
             Expense Breakdown
           </h2>
           <ul className="space-y-3">
-            {expenseBreakdown.map((item, idx) => (
+            {expenseSummary.map((item, idx) => (
               <li
                 key={idx}
                 className="flex items-center justify-between border-l-4 pl-4 py-2 rounded bg-gray-50 dark:bg-gray-900"
               >
-                <div className="flex items-center gap-2">
-                  <span className="text-xl">
-                    {item.category === "Rent"
-                      ? "🏠"
-                      : item.category === "Logistics"
-                      ? "🚚"
-                      : item.category === "Salaries"
-                      ? "💼"
-                      : item.category === "Utility Bills"
-                      ? "💡"
-                      : "💸"}
-                  </span>
-                  <span className="text-gray-800 dark:text-gray-200 font-medium">
-                    {item.category}
-                  </span>
+                <div className="text-gray-800 dark:text-gray-200 font-medium">
+                  {item.category}
                 </div>
                 <span className="text-gray-700 dark:text-gray-300 font-semibold">
                   ₹{item.amount}
@@ -185,125 +127,66 @@ export default function Budgeting() {
             ))}
           </ul>
         </div>
-        {/* Purchase Details with Pie Chart */}
+
         <div className="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-md mr-4">
           <h2 className="text-xl font-semibold text-gray-800 dark:text-gray-100 mb-6 border-b border-gray-200 dark:border-gray-700 pb-2">
-            🛍️ Purchase Breakdown
+            Purchase Distribution
           </h2>
-
-          <div className="flex flex-col md:flex-row md:items-start items-center gap-6 w-full overflow-hidden">
-            {/* Pie Chart */}
-            <div className="w-full md:w-1/2 h-64 min-w-0">
-              <ResponsiveContainer width="100%" height="100%">
-                <PieChart>
-                  <Pie
-                    data={purchaseData}
-                    dataKey="value"
-                    nameKey="name"
-                    outerRadius={90}
-                    innerRadius={50}
-                    paddingAngle={3}
-                    label
-                  >
-                    {purchaseData.map((entry, index) => (
-                      <Cell
-                        key={`cell-${index}`}
-                        fill={COLORS[index % COLORS.length]}
-                      />
-                    ))}
-                  </Pie>
-                  <Tooltip
-                    contentStyle={{
-                      backgroundColor: "#fff",
-                      borderRadius: "6px",
-                      fontSize: "0.875rem",
-                      padding: "8px",
-                    }}
-                  />
-                </PieChart>
-              </ResponsiveContainer>
-            </div>
-
-            {/* Legend */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-sm w-full md:w-1/2">
-              {purchaseData.map((entry, index) => (
-                <div
-                  key={index}
-                  className="flex items-center justify-between px-3 py-2 rounded bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-200"
+          <div className="w-full h-64">
+            <ResponsiveContainer width="100%" height="100%">
+              <PieChart>
+                <Pie
+                  data={expenseSummary}
+                  dataKey="amount"
+                  nameKey="category"
+                  outerRadius={90}
+                  innerRadius={50}
+                  paddingAngle={3}
+                  label
                 >
-                  <span className="flex items-center gap-2">
-                    <span
-                      className="w-3 h-3 rounded-full"
-                      style={{ backgroundColor: COLORS[index % COLORS.length] }}
-                    ></span>
-                    {entry.name}
-                  </span>
-                  <span className="font-medium">
-                    ₹{entry.value.toLocaleString()}
-                  </span>
-                </div>
-              ))}
-            </div>
+                  {expenseSummary.map((entry, index) => (
+                    <Cell
+                      key={`cell-${index}`}
+                      fill={COLORS[index % COLORS.length]}
+                    />
+                  ))}
+                </Pie>
+                <Tooltip />
+              </PieChart>
+            </ResponsiveContainer>
           </div>
         </div>
       </div>
 
       {/* AI Suggestions */}
       <div className="bg-yellow-50 dark:bg-yellow-900 border-l-4 border-yellow-400 dark:border-yellow-600 p-6 rounded-xl shadow-sm">
-        <div className="flex items-center gap-2 mb-4">
-          <span className="text-yellow-500 text-2xl">💡</span>
-          <h2 className="text-lg font-semibold text-gray-800 dark:text-gray-100">
-            AI Suggestions
-          </h2>
-        </div>
-        <ul className="space-y-3 text-gray-800 dark:text-gray-200 text-sm pl-1">
-          <li className="flex items-start gap-2">
-            <span className="text-yellow-400 mt-1">✔️</span>
-            <span>
-              Your utility bill is higher than average — consider checking
-              unnecessary consumption.
-            </span>
-          </li>
-          <li className="flex items-start gap-2">
-            <span className="text-yellow-400 mt-1">✔️</span>
-            <span>
-              Online purchases have increased this month — try setting a monthly
-              cap.
-            </span>
-          </li>
-          <li className="flex items-start gap-2">
-            <span className="text-yellow-400 mt-1">✔️</span>
-            <span>
-              Logistics cost seems significant — check for optimization or
-              vendor alternatives.
-            </span>
-          </li>
+        <h2 className="text-lg font-semibold text-gray-800 dark:text-gray-100 mb-4">
+          AI Suggestions 📊
+        </h2>
+        <ul className="space-y-3 text-gray-800 dark:text-gray-200 text-sm">
+          {aiInsights.map((insight, idx) => (
+            <li key={idx} className="border-l-4 border-yellow-400 pl-4">
+              <p className="font-semibold">{insight.heading}</p>
+              <p>{insight.summary}</p>
+              <p className="text-xs italic text-gray-600">Criticality: {insight.criticality}</p>
+            </li>
+          ))}
         </ul>
       </div>
 
-      {/* Transaction Table */}
+      {/* Transactions Table */}
       <div className="bg-white dark:bg-gray-800 p-6 rounded shadow mt-4 overflow-x-auto max-h-80 overflow-y-auto">
         <div className="flex justify-between items-center mb-4">
-          <h2 className="text-lg font-semibold text-gray-700 dark:text-gray-200">
-            Transactions
-          </h2>
+          <h2 className="text-lg font-semibold text-gray-700 dark:text-gray-200">Transactions</h2>
           <div className="flex gap-2">
             <button
-              className={`px-3 py-1 rounded text-sm ${
-                filterType === "inflow"
-                  ? "bg-green-600 text-white"
-                  : "bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-100"
-              }`}
+              className={`px-3 py-1 rounded text-sm ${filterType === "inflow" ? "bg-green-600 text-white" : "bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-100"}`}
               onClick={() => setFilterType("inflow")}
             >
               Inflows
             </button>
             <button
-              className={`px-3 py-1 rounded text-sm ${
-                filterType === "outflow"
-                  ? "bg-red-600 text-white"
-                  : "bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-100"
-              }`}
+              className={`px-3 py-1 rounded text-sm ${filterType === "outflow" ? "bg-red-600 text-white" : "bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-100"}`}
               onClick={() => setFilterType("outflow")}
             >
               Outflows
@@ -312,9 +195,7 @@ export default function Budgeting() {
         </div>
 
         {filteredTransactions.length === 0 ? (
-          <p className="text-sm text-gray-500 dark:text-gray-400">
-            No {filterType} transactions found.
-          </p>
+          <p className="text-sm text-gray-500 dark:text-gray-400">No {filterType} transactions found.</p>
         ) : (
           <table className="w-full text-sm text-left">
             <thead>
@@ -324,19 +205,12 @@ export default function Budgeting() {
                 <th className="py-2 pr-4">Category</th>
                 <th className="py-2 pr-4">Description</th>
                 <th className="py-2 pr-4">Amount</th>
-                <th className="py-2 pr-4">Party Involved</th>
+                <th className="py-2 pr-4">Party</th>
               </tr>
             </thead>
             <tbody>
               {filteredTransactions.map((t, idx) => (
-                <tr
-                  key={idx}
-                  className={`border-b dark:border-gray-700 text-gray-800 dark:text-gray-200 ${
-                    t.transactionType === "inflow"
-                      ? "bg-green-50 dark:bg-green-900"
-                      : "bg-red-50 dark:bg-red-900"
-                  }`}
-                >
+                <tr key={idx} className={`border-b dark:border-gray-700 ${t.transactionType === "inflow" ? "bg-green-50 dark:bg-green-900" : "bg-red-50 dark:bg-red-900"} text-gray-800 dark:text-gray-200`}>
                   <td className="py-2 pr-4">{t.date}</td>
                   <td className="py-2 pr-4">{t.time}</td>
                   <td className="py-2 pr-4">{t.category}</td>
